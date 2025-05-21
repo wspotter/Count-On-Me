@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -158,13 +159,18 @@ export default function ArtRecognitionPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Art Supply Recognition</h1>
-        {imageDataUri && (
-          <Button variant="outline" onClick={clearImage} disabled={isLoading}>
-            <Eraser className="mr-2 h-5 w-5" /> Clear Image
-          </Button>
-        )}
+      <div className="space-y-2">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Art Supply Recognition</h1>
+          {imageDataUri && (
+            <Button variant="outline" onClick={clearImage} disabled={isLoading} className="mt-1 md:mt-0">
+              <Eraser className="mr-2 h-5 w-5" /> Clear Image
+            </Button>
+          )}
+        </div>
+        <p className="text-lg text-muted-foreground">
+          Analyze images of your art supplies. The AI will identify each item type and count how many it detects.
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'upload' | 'webcam')} className="w-full">
