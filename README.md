@@ -1,7 +1,7 @@
 
-# Count On Me - Efficient Inventory Management
+# Count-On-Me - Efficient Inventory Management
 
-"Count On Me" is a Next.js application designed for efficient inventory management, particularly for retail stores like art supplies. It features AI-powered tools like "Quick Counter" for recognizing items from images, counting them, and attempting to read barcodes.
+"Count-On-Me" is a Next.js application designed for efficient inventory management, particularly for retail stores like art supplies. It features AI-powered tools like "Quick Counter" for recognizing items from images, counting them, and attempting to read barcodes.
 
 ## Features
 
@@ -22,7 +22,7 @@
 - **TypeScript:** Superset of JavaScript adding static typing.
 - **Tailwind CSS:** Utility-first CSS framework for styling.
 - **ShadCN UI:** Re-usable UI components.
-- **Genkit (with Google Gemini):** AI integration for object recognition, barcode reading attempts, and restock suggestions.
+- **Genkit (with Google Gemini or OpenAI):** AI integration for object recognition, barcode reading attempts, and restock suggestions.
 - **Lucide React:** Icon library.
 
 ## Getting Started
@@ -59,15 +59,35 @@ yarn install
 
 ### 3. Set Up Environment Variables
 
-The application uses Google's Gemini model via Genkit for its AI features. You'll need an API key for this.
+The application uses Genkit for its AI features, which can be configured to use either Google's Gemini models or OpenAI's models.
 
 1.  Create a file named `.env` in the root of your project directory (if it doesn't already exist).
-2.  Add your Gemini API key to this file:
+2.  Configure the AI provider and API keys. Copy and paste the following into your `.env` file, then replace the placeholder values with your actual keys and desired settings:
 
     ```env
-    GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+    # --- AI Provider Configuration ---
+    # Set AI_PROVIDER to "googleai" or "openai"
+    AI_PROVIDER=googleai # or openai
+
+    # --- Google AI Configuration (only needed if AI_PROVIDER is "googleai") ---
+    GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
+    # Specify the Gemini model you want to use, e.g., gemini-1.5-flash-latest, gemini-pro
+    GEMINI_MODEL_NAME=gemini-1.5-flash-latest
+
+    # --- OpenAI Configuration (only needed if AI_PROVIDER is "openai") ---
+    OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+    # Specify the OpenAI model, e.g., gpt-4-turbo-preview, gpt-3.5-turbo
+    OPENAI_MODEL_NAME=gpt-4-turbo-preview 
+    # Optional: Specify a custom base URL for OpenAI-compatible APIs (e.g., for local models or proxies)
+    # Example: OPENAI_BASE_URL=http://localhost:1234/v1
+    # OPENAI_BASE_URL= 
     ```
-    Replace `YOUR_GEMINI_API_KEY` with your actual API key.
+
+    **Important:**
+    *   Set `AI_PROVIDER` to either `googleai` or `openai`.
+    *   If using `googleai`, ensure `GEMINI_API_KEY` and optionally `GEMINI_MODEL_NAME` are set.
+    *   If using `openai`, ensure `OPENAI_API_KEY` and optionally `OPENAI_MODEL_NAME` and `OPENAI_BASE_URL` are set.
+    *   You only need to provide the API key for the provider you select with `AI_PROVIDER`.
 
 ### 4. Run the Development Servers
 
