@@ -13,14 +13,14 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/Logo';
-import { LayoutDashboard, Archive, ShoppingBag, UserCircle, Settings, LogOut, Paintbrush } from 'lucide-react'; // Added Paintbrush
+import { LayoutDashboard, Archive, ShoppingBag, UserCircle, Settings, LogOut, Wand2 as QuickCounterIcon } from 'lucide-react'; // Changed Paintbrush to Wand2 and used an alias
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Archive },
   { href: '/restock', label: 'Restock Suggestions', icon: ShoppingBag },
-  { href: '/art-recognition', label: 'Art Recognition', icon: Paintbrush }, // New Item
+  { href: '/quick-counter', label: 'Quick Counter', icon: QuickCounterIcon }, // Updated href and label, changed icon
 ];
 
 export function AppSidebar() {

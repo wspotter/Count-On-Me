@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'StockPilot',
-  description: 'Efficient Inventory Management with AI-Powered Restock Suggestions',
+  title: 'Count On Me',
+  description: 'Efficient Inventory Management with AI-Powered Quick Counting',
 };
 
 export default function RootLayout({
