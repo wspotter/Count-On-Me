@@ -25,8 +25,10 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
     let sortableItems = [...items];
     if (sortConfig !== null && sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
-        const valA = a[sortConfig.key!];
-        const valB = b[sortConfig.key!];
+        // Ensure 'barcode' is handled correctly as it's optional
+        const valA = sortConfig.key === 'barcode' ? a.barcode || '' : a[sortConfig.key!];
+        const valB = sortConfig.key === 'barcode' ? b.barcode || '' : b[sortConfig.key!];
+
 
         if (typeof valA === 'number' && typeof valB === 'number') {
           return sortConfig.direction === 'ascending' ? valA - valB : valB - valA;
@@ -65,6 +67,9 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
           <TableHead onClick={() => requestSort('quantity')} className="cursor-pointer text-right">
             Quantity {getSortIndicator('quantity')}
           </TableHead>
+          <TableHead onClick={() => requestSort('barcode')} className="cursor-pointer">
+            Barcode {getSortIndicator('barcode')}
+          </TableHead>
           <TableHead onClick={() => requestSort('price')} className="cursor-pointer text-right">
             Price {getSortIndicator('price')}
           </TableHead>
@@ -83,6 +88,7 @@ export function InventoryTable({ items, onEdit, onDelete }: InventoryTableProps)
                 {item.quantity}
               </Badge>
             </TableCell>
+            <TableCell>{item.barcode || 'N/A'}</TableCell>
             <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
             <TableCell>{format(new Date(item.lastUpdated), 'PP')}</TableCell>
             <TableCell className="text-right">

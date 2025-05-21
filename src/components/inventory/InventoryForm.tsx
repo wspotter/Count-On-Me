@@ -14,6 +14,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   quantity: z.coerce.number().min(0, { message: "Quantity cannot be negative." }),
   price: z.coerce.number().min(0.01, { message: "Price must be greater than 0." }),
+  barcode: z.string().optional(),
 });
 
 type InventoryFormValues = z.infer<typeof formSchema>;
@@ -28,8 +29,8 @@ export function InventoryForm({ onSubmit, initialData, onClose }: InventoryFormP
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData 
-      ? { name: initialData.name, quantity: initialData.quantity, price: initialData.price } 
-      : { name: '', quantity: 0, price: 0 },
+      ? { name: initialData.name, quantity: initialData.quantity, price: initialData.price, barcode: initialData.barcode || '' } 
+      : { name: '', quantity: 0, price: 0, barcode: '' },
   });
 
   const handleSubmit = (values: InventoryFormValues) => {
@@ -66,6 +67,19 @@ export function InventoryForm({ onSubmit, initialData, onClose }: InventoryFormP
                 <FormLabel>Quantity</FormLabel>
                 <FormControl>
                   <Input type="number" placeholder="e.g. 25" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+           <FormField
+            control={form.control}
+            name="barcode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Barcode (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. 123456789012" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

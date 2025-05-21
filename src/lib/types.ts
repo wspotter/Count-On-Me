@@ -3,6 +3,7 @@ export interface InventoryItem {
   name: string;
   quantity: number;
   price: number;
+  barcode?: string; // Added barcode field
   lastUpdated: string; // ISO string date
 }
 

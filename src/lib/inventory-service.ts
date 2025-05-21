@@ -21,22 +21,25 @@ const isLocalStorageAvailable = () => {
 export function getInventoryItemsFromStorage(): InventoryItem[] {
   if (!isLocalStorageAvailable()) {
     console.warn('localStorage is not available. Returning MOCK_INVENTORY_ITEMS.');
-    return MOCK_INVENTORY_ITEMS; // Fallback, but won't persist
+    return MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined })); // Ensure barcode is part of the type
   }
   try {
     const storedInventory = localStorage.getItem(INVENTORY_STORAGE_KEY);
     if (storedInventory) {
-      return JSON.parse(storedInventory);
+      const items: InventoryItem[] = JSON.parse(storedInventory);
+      return items.map(item => ({ ...item, barcode: item.barcode || undefined }));
     } else {
       // Initialize with mock data if nothing is in localStorage
-      localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(MOCK_INVENTORY_ITEMS));
-      return MOCK_INVENTORY_ITEMS;
+      const initialItems = MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined }));
+      localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(initialItems));
+      return initialItems;
     }
   } catch (error) {
     console.error("Error reading inventory from localStorage:", error);
     // Fallback in case of parsing error or other issues
-    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(MOCK_INVENTORY_ITEMS));
-    return MOCK_INVENTORY_ITEMS;
+    const fallbackItems = MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined }));
+    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(fallbackItems));
+    return fallbackItems;
   }
 }
 
@@ -46,7 +49,7 @@ export function saveInventoryItemsToStorage(items: InventoryItem[]): void {
     return;
   }
   try {
-    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(items.map(item => ({ ...item, barcode: item.barcode || undefined }))));
   } catch (error) {
     console.error("Error saving inventory to localStorage:", error);
   }
@@ -75,6 +78,7 @@ export function updateInventoryWithRecognizedItems(recognizedItems: RecognizedAr
         name: recognizedItem.name.trim(),
         quantity: recognizedItem.count,
         price: 0.00, // Default price for new items from recognition
+        barcode: undefined, // New items from recognition don't have a barcode initially
         lastUpdated: new Date().toISOString(),
       };
       currentInventory.push(newItem);
