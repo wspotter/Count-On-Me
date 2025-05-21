@@ -1,3 +1,4 @@
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -22,6 +23,7 @@ export interface GenerateRestockLevelsOutput {
 export interface RecognizedArtSupply {
   name: string; // e.g., "Paintbrush - Round Tip", "Acrylic Paint Tube - Red"
   count: number;
+  barcode?: string; // AI might detect a barcode
 }
 
 export interface RecognizeArtSuppliesOutput {

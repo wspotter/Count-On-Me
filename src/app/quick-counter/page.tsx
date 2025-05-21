@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle, HelpCircle } from "lucide-react";
+import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle, HelpCircle, ScanBarcode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { RecognizeArtSuppliesOutput, RecognizedArtSupply } from '@/lib/types';
 import { analyzeArtSuppliesImage } from './actions';
@@ -146,7 +146,7 @@ export default function QuickCounterPage() {
     if (response.success && response.data) {
       setResults(response.data);
       if (Array.isArray(response.data.recognizedItems)) {
-        setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems))); 
+        setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems.map(item => ({...item, barcode: item.barcode || ''}))))); 
       } else {
         setEditableItems([]); 
       }
@@ -156,7 +156,7 @@ export default function QuickCounterPage() {
       if (response.data) { 
         setResults(response.data); 
         if (Array.isArray(response.data.recognizedItems)) {
-          setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems)));
+          setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems.map(item => ({...item, barcode: item.barcode || ''})))));
         } else {
           setEditableItems([]); 
         }
@@ -173,7 +173,7 @@ export default function QuickCounterPage() {
     setResults(null);
     setEditableItems([]);
     setError(null);
-    setUserInstructions(''); // Clear instructions as well
+    setUserInstructions('');
     if (isWebcamOn) stopWebcam();
     const fileInput = document.getElementById('quick-counter-image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -186,8 +186,8 @@ export default function QuickCounterPage() {
     if (field === 'count') {
         const newCount = typeof value === 'string' ? parseInt(value, 10) : value;
         currentItem.count = isNaN(newCount) || newCount < 0 ? 0 : newCount;
-    } else if (field === 'name') {
-        currentItem.name = typeof value === 'string' ? value : String(value);
+    } else if (field === 'name' || field === 'barcode') {
+        currentItem[field] = typeof value === 'string' ? value : String(value);
     }
     
     updatedItems[index] = currentItem;
@@ -201,7 +201,12 @@ export default function QuickCounterPage() {
     }
     setIsLoadingSave(true);
     try {
-      updateInventoryWithRecognizedItems(editableItems);
+      // Ensure barcode is either a string or undefined, not null
+      const itemsToSave = editableItems.map(item => ({
+        ...item,
+        barcode: item.barcode === '' ? undefined : item.barcode,
+      }));
+      updateInventoryWithRecognizedItems(itemsToSave);
       toast({ title: "Inventory Updated", description: "Counted items have been added/updated in your inventory." });
       if (results) {
         setResults(prevResults => prevResults ? {...prevResults, recognizedItems: [...editableItems]} : null);
@@ -216,7 +221,7 @@ export default function QuickCounterPage() {
 
   const handleCancelChanges = () => {
     if (results && Array.isArray(results.recognizedItems)) {
-      setEditableItems(JSON.parse(JSON.stringify(results.recognizedItems))); 
+       setEditableItems(JSON.parse(JSON.stringify(results.recognizedItems.map(item => ({...item, barcode: item.barcode || ''}))))); 
       toast({ title: "Corrections Canceled", description: "Changes have been reverted to the last AI analysis." });
     } else if (results && typeof results.recognizedItems === 'string') {
         setEditableItems([]);
@@ -238,7 +243,7 @@ export default function QuickCounterPage() {
           )}
         </div>
          <p className="text-lg text-muted-foreground">
-          Upload or capture an image of your supplies. The AI will identify each item and its count. You can then correct these findings and save them to your inventory. Use the optional instruction box to guide the AI.
+          Upload or capture an image of your supplies. The AI will identify each item, its count, and attempt to read barcodes. You can then correct these findings and save them to your inventory. Use the optional instruction box to guide the AI.
         </p>
       </div>
 
@@ -336,7 +341,7 @@ export default function QuickCounterPage() {
                           <li>"Only count the blue paint tubes."</li>
                           <li>"Focus on the items on the top shelf."</li>
                           <li>"Ignore any pencils."</li>
-                          <li>"Provide counts for brushes larger than 1 inch."</li>
+                           <li>"Prioritize reading barcodes if visible."</li>
                         </ul>
                       </PopoverContent>
                     </Popover>
@@ -345,7 +350,7 @@ export default function QuickCounterPage() {
                     id="user-instructions"
                     value={userInstructions}
                     onChange={(e) => setUserInstructions(e.target.value)}
-                    placeholder="e.g., 'Only count items on the top row', 'Just the red paint tubes'"
+                    placeholder="e.g., 'Only count items on the top row', 'Try to read barcodes for all items'"
                     className="mt-1"
                     rows={3}
                     disabled={isLoading || isLoadingSave}
@@ -378,13 +383,14 @@ export default function QuickCounterPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2 text-lg">Identified Items</h3>
+              <h3 className="font-semibold mb-2 text-lg flex items-center"><ScanBarcode className="mr-2 h-5 w-5 text-primary" />Identified Items & Barcodes</h3>
               {canEditResults ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[60%]">Supply Name</TableHead>
-                      <TableHead className="text-right w-[30%]">Count</TableHead>
+                      <TableHead className="w-[45%]">Supply Name</TableHead>
+                      <TableHead className="w-[30%]">Barcode (if detected)</TableHead>
+                      <TableHead className="text-right w-[25%]">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -395,6 +401,16 @@ export default function QuickCounterPage() {
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                            className="h-8"
+                            disabled={isLoadingSave}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={item.barcode || ''}
+                            placeholder="No barcode detected"
+                            onChange={(e) => handleItemChange(index, 'barcode', e.target.value)}
                             className="h-8"
                             disabled={isLoadingSave}
                           />
@@ -443,7 +459,7 @@ export default function QuickCounterPage() {
         </Card>
       )}
        <p className="text-xs text-muted-foreground mt-4">
-        Note: AI-powered recognition is experimental. For critical inventory, always verify counts manually. New items added via recognition will have a default price of $0.00; please update this on the Inventory page.
+        Note: AI-powered recognition and barcode reading are experimental. For critical inventory, always verify counts and details manually. New items added via recognition will have a default price of $0.00; please update this on the Inventory page.
       </p>
     </div>
   );

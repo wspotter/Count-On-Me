@@ -21,7 +21,7 @@ const isLocalStorageAvailable = () => {
 export function getInventoryItemsFromStorage(): InventoryItem[] {
   if (!isLocalStorageAvailable()) {
     console.warn('localStorage is not available. Returning MOCK_INVENTORY_ITEMS.');
-    return MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined })); // Ensure barcode is part of the type
+    return MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined }));
   }
   try {
     const storedInventory = localStorage.getItem(INVENTORY_STORAGE_KEY);
@@ -29,14 +29,12 @@ export function getInventoryItemsFromStorage(): InventoryItem[] {
       const items: InventoryItem[] = JSON.parse(storedInventory);
       return items.map(item => ({ ...item, barcode: item.barcode || undefined }));
     } else {
-      // Initialize with mock data if nothing is in localStorage
       const initialItems = MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined }));
       localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(initialItems));
       return initialItems;
     }
   } catch (error) {
     console.error("Error reading inventory from localStorage:", error);
-    // Fallback in case of parsing error or other issues
     const fallbackItems = MOCK_INVENTORY_ITEMS.map(item => ({ ...item, barcode: item.barcode || undefined }));
     localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(fallbackItems));
     return fallbackItems;
@@ -59,26 +57,26 @@ export function updateInventoryWithRecognizedItems(recognizedItems: RecognizedAr
   let currentInventory = getInventoryItemsFromStorage();
 
   recognizedItems.forEach(recognizedItem => {
-    if (recognizedItem.count <= 0) return; // Skip items with zero or negative count
+    if (recognizedItem.count <= 0) return; 
 
     const existingItemIndex = currentInventory.findIndex(
       invItem => invItem.name.trim().toLowerCase() === recognizedItem.name.trim().toLowerCase()
     );
 
     if (existingItemIndex > -1) {
-      // Item exists, update its quantity and lastUpdated
       const updatedItem = { ...currentInventory[existingItemIndex] };
-      updatedItem.quantity += recognizedItem.count; // Add to existing quantity
+      updatedItem.quantity += recognizedItem.count; 
       updatedItem.lastUpdated = new Date().toISOString();
+      // Do not update barcode for existing items here to avoid accidental overwrites.
+      // Barcode for existing items should be managed on the main inventory page.
       currentInventory[existingItemIndex] = updatedItem;
     } else {
-      // Item does not exist, add it as a new inventory item
       const newItem: InventoryItem = {
-        id: String(Date.now()) + Math.random().toString(36).substring(2, 9), // More unique ID
+        id: String(Date.now()) + Math.random().toString(36).substring(2, 9), 
         name: recognizedItem.name.trim(),
         quantity: recognizedItem.count,
-        price: 0.00, // Default price for new items from recognition
-        barcode: undefined, // New items from recognition don't have a barcode initially
+        price: 0.00, 
+        barcode: recognizedItem.barcode ? recognizedItem.barcode.trim() : undefined, // Save barcode if provided by AI/user
         lastUpdated: new Date().toISOString(),
       };
       currentInventory.push(newItem);
