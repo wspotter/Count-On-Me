@@ -16,3 +16,14 @@ export interface GenerateRestockLevelsOutput {
   restockRecommendations: RestockRecommendation[];
   analysisSummary: string;
 }
+
+// --- New types for Art Recognition ---
+export interface RecognizedArtSupply {
+  name: string; // e.g., "Paintbrush - Round Tip", "Acrylic Paint Tube - Red"
+  count: number;
+}
+
+export interface RecognizeArtSuppliesOutput {
+  recognizedItems: RecognizedArtSupply[];
+  analysisSummary: string; // General comments from the AI
+}

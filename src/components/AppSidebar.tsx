@@ -13,13 +13,14 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/Logo';
-import { LayoutDashboard, Archive, ShoppingBag, UserCircle, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Archive, ShoppingBag, UserCircle, Settings, LogOut, Paintbrush } from 'lucide-react'; // Added Paintbrush
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Archive },
   { href: '/restock', label: 'Restock Suggestions', icon: ShoppingBag },
+  { href: '/art-recognition', label: 'Art Recognition', icon: Paintbrush }, // New Item
 ];
 
 export function AppSidebar() {
