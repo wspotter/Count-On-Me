@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser } from "lucide-react";
+import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { RecognizeArtSuppliesOutput, RecognizedArtSupply } from '@/lib/types';
 import { analyzeArtSuppliesImage } from './actions';
@@ -24,6 +24,7 @@ export default function ArtRecognitionPage() {
   const [file, setFile] = useState<File | null>(null);
   
   const [results, setResults] = useState<RecognizeArtSuppliesOutput | null>(null);
+  const [editableItems, setEditableItems] = useState<RecognizedArtSupply[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +36,6 @@ export default function ArtRecognitionPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Cleanup webcam stream when component unmounts or webcam is turned off
     return () => {
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -54,6 +54,7 @@ export default function ArtRecognitionPage() {
         setImageDataUri(dataUri);
         setImagePreview(dataUri);
         setResults(null);
+        setEditableItems([]);
         setError(null);
       };
       reader.readAsDataURL(f);
@@ -66,13 +67,14 @@ export default function ArtRecognitionPage() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play(); // Ensure video plays
+          await videoRef.current.play();
         }
         setHasCameraPermission(true);
         setIsWebcamOn(true);
-        setImageDataUri(null); // Clear any uploaded image
-        setImagePreview(PLACEHOLDER_IMAGE); // Reset preview
+        setImageDataUri(null);
+        setImagePreview(PLACEHOLDER_IMAGE);
         setResults(null);
+        setEditableItems([]);
         setError(null);
         toast({ title: "Webcam started" });
       } catch (err) {
@@ -97,7 +99,7 @@ export default function ArtRecognitionPage() {
       videoRef.current.srcObject = null;
     }
     setIsWebcamOn(false);
-    setHasCameraPermission(null); // Reset permission status
+    setHasCameraPermission(null);
     toast({ title: "Webcam stopped" });
   };
 
@@ -110,12 +112,13 @@ export default function ArtRecognitionPage() {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUri = canvas.toDataURL('image/jpeg'); // Or image/png
+        const dataUri = canvas.toDataURL('image/jpeg');
         setImageDataUri(dataUri);
         setImagePreview(dataUri);
         setResults(null);
+        setEditableItems([]);
         setError(null);
-        stopWebcam(); // Optionally stop webcam after capture
+        stopWebcam();
         toast({ title: "Image Captured!", description: "Ready for analysis."});
       }
     } else {
@@ -131,15 +134,26 @@ export default function ArtRecognitionPage() {
     setIsLoading(true);
     setError(null);
     setResults(null);
+    setEditableItems([]);
 
     const response = await analyzeArtSuppliesImage({ imageDataUri });
     if (response.success && response.data) {
       setResults(response.data);
+      if (Array.isArray(response.data.recognizedItems)) {
+        setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems))); // Deep copy
+      } else {
+        setEditableItems([]); // Cannot edit if it's not an array
+      }
       toast({ title: "Analysis Complete", description: "Art supplies recognized." });
     } else {
       setError(response.error || "An unknown error occurred during analysis.");
-      if (response.data) { // Handle case where AI output parsing failed but raw data is available
-        setResults(response.data); // This will show the raw output for recognizedItems
+      if (response.data) { 
+        setResults(response.data); 
+        if (Array.isArray(response.data.recognizedItems)) {
+          setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems)));
+        } else {
+          setEditableItems([]); 
+        }
       }
       toast({ variant: "destructive", title: "Analysis Failed", description: response.error });
     }
@@ -151,10 +165,50 @@ export default function ArtRecognitionPage() {
     setImagePreview(PLACEHOLDER_IMAGE);
     setFile(null);
     setResults(null);
+    setEditableItems([]);
     setError(null);
     const fileInput = document.getElementById('art-image-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = ""; // Reset file input
+    if (fileInput) fileInput.value = "";
   };
+
+  const handleItemChange = (index: number, field: keyof RecognizedArtSupply, value: string | number) => {
+    const updatedItems = [...editableItems];
+    const currentItem = { ...updatedItems[index] };
+
+    if (field === 'count') {
+        const newCount = typeof value === 'string' ? parseInt(value, 10) : value;
+        currentItem.count = isNaN(newCount) || newCount < 0 ? 0 : newCount;
+    } else if (field === 'name') {
+        currentItem.name = typeof value === 'string' ? value : String(value);
+    }
+    
+    updatedItems[index] = currentItem;
+    setEditableItems(updatedItems);
+  };
+
+  const handleSaveChanges = () => {
+    if (!results) return;
+    // Create a new results object with the updated items
+    const newResults: RecognizeArtSuppliesOutput = {
+        ...results,
+        recognizedItems: [...editableItems] // Use a copy of editableItems
+    };
+    setResults(newResults); // This will make the table re-render with corrected values
+    toast({ title: "Corrections Saved", description: "Your changes have been applied to the current view." });
+  };
+
+  const handleCancelChanges = () => {
+    if (results && Array.isArray(results.recognizedItems)) {
+      setEditableItems(JSON.parse(JSON.stringify(results.recognizedItems))); // Reset to original AI results
+      toast({ title: "Corrections Canceled", description: "Changes have been reverted to the last AI analysis." });
+    } else if (results && typeof results.recognizedItems === 'string') {
+        // If original was a string, implies it was unparsable, so reset editableItems to empty
+        setEditableItems([]);
+        toast({ title: "Corrections Canceled", description: "Original data was not in an editable format." });
+    }
+  };
+
+  const canEditResults = results && Array.isArray(results.recognizedItems) && results.recognizedItems.length > 0;
 
 
   return (
@@ -169,7 +223,7 @@ export default function ArtRecognitionPage() {
           )}
         </div>
         <p className="text-lg text-muted-foreground">
-          Analyze images of your art supplies. The AI will identify each item type and count how many it detects.
+          Analyze images of your art supplies. The AI will identify each item type and count how many it detects. You can then correct these results.
         </p>
       </div>
 
@@ -238,7 +292,7 @@ export default function ArtRecognitionPage() {
       {(imagePreview !== PLACEHOLDER_IMAGE || (isWebcamOn && activeTab === "webcam")) && (
         <Card className="mt-6">
             <CardHeader>
-                <CardTitle>Image Preview & Analysis</CardTitle>
+                <CardTitle>Image Preview & Analysis Trigger</CardTitle>
             </CardHeader>
             <CardContent>
                 {activeTab === 'upload' && imagePreview && imagePreview !== PLACEHOLDER_IMAGE && (
@@ -246,13 +300,11 @@ export default function ArtRecognitionPage() {
                          <Image src={imagePreview} alt="Art supplies preview" width={600} height={400} className="rounded-md object-contain max-h-[400px] w-auto mx-auto shadow-md" data-ai-hint="art supplies" />
                     </div>
                 )}
-                {/* Preview for webcam tab is the live feed itself, or captured image if one was made */}
                  {activeTab === 'webcam' && imagePreview && imagePreview !== PLACEHOLDER_IMAGE && !isWebcamOn && (
                     <div className="mb-4">
                          <Image src={imagePreview} alt="Captured art supplies" width={600} height={400} className="rounded-md object-contain max-h-[400px] w-auto mx-auto shadow-md" data-ai-hint="art supplies" />
                     </div>
                 )}
-
             </CardContent>
             <CardFooter>
                 <Button onClick={handleAnalyze} disabled={isLoading || !imageDataUri}>
@@ -276,34 +328,50 @@ export default function ArtRecognitionPage() {
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Analysis Results</CardTitle>
+            <CardDescription>Review and correct the AI's findings below. Click "Save Corrections" to apply your changes to this view.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <h3 className="font-semibold mb-2 text-lg">Identified Items</h3>
-              {Array.isArray(results.recognizedItems) && results.recognizedItems.length > 0 ? (
+              {canEditResults ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Art Supply Name</TableHead>
-                      <TableHead className="text-right">Count</TableHead>
+                      <TableHead className="w-[60%]">Art Supply Name</TableHead>
+                      <TableHead className="text-right w-[30%]">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {results.recognizedItems.map((item, index) => (
-                      <TableRow key={item.name + index}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell className="text-right">{item.count}</TableCell>
+                    {editableItems.map((item, index) => (
+                      <TableRow key={`edit-${item.name}-${index}`}> {/* Ensure key is unique for editable items */}
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            value={item.count}
+                            onChange={(e) => handleItemChange(index, 'count', e.target.value)}
+                            className="h-8 w-20 text-right"
+                            min="0"
+                          />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : typeof results.recognizedItems === 'string' ? (
                  <div className="p-4 bg-muted rounded-md">
-                    <p className="text-sm text-muted-foreground mb-2">Raw item data (AI output might be malformed):</p>
+                    <p className="text-sm text-muted-foreground mb-2">Raw item data (AI output might be malformed and cannot be edited):</p>
                     <pre className="whitespace-pre-wrap text-xs">{results.recognizedItems}</pre>
                  </div>
               ) : (
-                <p className="text-muted-foreground">No art supplies were confidently recognized, or the data is in an unexpected format.</p>
+                <p className="text-muted-foreground">No art supplies were confidently recognized in an editable format, or the data is in an unexpected format.</p>
               )}
             </div>
             <div>
@@ -313,6 +381,16 @@ export default function ArtRecognitionPage() {
               </p>
             </div>
           </CardContent>
+           {canEditResults && (
+            <CardFooter className="flex justify-end gap-2">
+                <Button variant="outline" onClick={handleCancelChanges} disabled={isLoading}>
+                    <XCircle className="mr-2 h-5 w-5" /> Cancel Corrections
+                </Button>
+                <Button onClick={handleSaveChanges} disabled={isLoading}>
+                    <Save className="mr-2 h-5 w-5" /> Save Corrections
+                </Button>
+            </CardFooter>
+           )}
         </Card>
       )}
        <p className="text-xs text-muted-foreground mt-4">
