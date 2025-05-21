@@ -8,13 +8,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle } from "lucide-react";
+import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { RecognizeArtSuppliesOutput, RecognizedArtSupply } from '@/lib/types';
 import { analyzeArtSuppliesImage } from './actions';
 import { updateInventoryWithRecognizedItems } from '@/lib/inventory-service';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 
 const PLACEHOLDER_IMAGE = "https://placehold.co/600x400.png";
 
@@ -23,6 +26,7 @@ export default function ArtRecognitionPage() {
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(PLACEHOLDER_IMAGE);
   const [file, setFile] = useState<File | null>(null);
+  const [userInstructions, setUserInstructions] = useState<string>('');
   
   const [results, setResults] = useState<RecognizeArtSuppliesOutput | null>(null);
   const [editableItems, setEditableItems] = useState<RecognizedArtSupply[]>([]);
@@ -138,7 +142,7 @@ export default function ArtRecognitionPage() {
     setResults(null);
     setEditableItems([]);
 
-    const response = await analyzeArtSuppliesImage({ imageDataUri });
+    const response = await analyzeArtSuppliesImage({ imageDataUri, userInstructions });
     if (response.success && response.data) {
       setResults(response.data);
       if (Array.isArray(response.data.recognizedItems)) {
@@ -169,6 +173,7 @@ export default function ArtRecognitionPage() {
     setResults(null);
     setEditableItems([]);
     setError(null);
+    setUserInstructions(''); // Clear instructions as well
     if (isWebcamOn) stopWebcam();
     const fileInput = document.getElementById('art-image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -198,10 +203,6 @@ export default function ArtRecognitionPage() {
     try {
       updateInventoryWithRecognizedItems(editableItems);
       toast({ title: "Inventory Updated", description: "Recognized items have been added/updated in your inventory." });
-      // Optionally, clear the current results or give other feedback
-      // For example, reset the page:
-      // clearImage(); 
-      // Or just update the results to reflect saved state (no further editing on this batch)
       if (results) {
         setResults(prevResults => prevResults ? {...prevResults, recognizedItems: [...editableItems]} : null);
       }
@@ -237,7 +238,7 @@ export default function ArtRecognitionPage() {
           )}
         </div>
          <p className="text-lg text-muted-foreground">
-          Upload or capture an image of art supplies. The AI will identify each item and its count. You can then correct these findings and save them to your inventory.
+          Upload or capture an image of art supplies. The AI will identify each item and its count. You can then correct these findings and save them to your inventory. Use the optional instruction box to guide the AI.
         </p>
       </div>
 
@@ -306,9 +307,9 @@ export default function ArtRecognitionPage() {
       {(imagePreview !== PLACEHOLDER_IMAGE || (isWebcamOn && activeTab === "webcam")) && (
         <Card className="mt-6">
             <CardHeader>
-                <CardTitle>Image Preview & Analysis Trigger</CardTitle>
+                <CardTitle>Image Preview & Analysis Settings</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
                 {activeTab === 'upload' && imagePreview && imagePreview !== PLACEHOLDER_IMAGE && (
                     <div className="mb-4">
                          <Image src={imagePreview} alt="Art supplies preview" width={600} height={400} className="rounded-md object-contain max-h-[400px] w-auto mx-auto shadow-md" data-ai-hint="art supplies" />
@@ -319,6 +320,37 @@ export default function ArtRecognitionPage() {
                          <Image src={imagePreview} alt="Captured art supplies" width={600} height={400} className="rounded-md object-contain max-h-[400px] w-auto mx-auto shadow-md" data-ai-hint="art supplies" />
                     </div>
                 )}
+                
+                <div>
+                  <Label htmlFor="user-instructions" className="flex items-center gap-2">
+                    Optional Instructions for AI
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground">
+                          <HelpCircle className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="text-sm">
+                        Provide specific guidance to the AI, for example:
+                        <ul className="list-disc pl-5 mt-1 space-y-1">
+                          <li>"Only count the blue paint tubes."</li>
+                          <li>"Focus on the items on the top shelf."</li>
+                          <li>"Ignore any pencils."</li>
+                          <li>"Provide counts for brushes larger than 1 inch."</li>
+                        </ul>
+                      </PopoverContent>
+                    </Popover>
+                  </Label>
+                  <Textarea
+                    id="user-instructions"
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    placeholder="e.g., 'Only count items on the top row', 'Just the red paint tubes'"
+                    className="mt-1"
+                    rows={3}
+                    disabled={isLoading || isLoadingSave}
+                  />
+                </div>
             </CardContent>
             <CardFooter>
                 <Button onClick={handleAnalyze} disabled={isLoading || isLoadingSave || !imageDataUri}>

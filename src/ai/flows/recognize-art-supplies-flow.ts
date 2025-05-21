@@ -16,6 +16,12 @@ const RecognizeArtSuppliesInputSchema = z.object({
     .describe(
       "A photo of art supplies, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  userInstructions: z
+    .string()
+    .optional()
+    .describe(
+      'Optional specific instructions for the AI, e.g., "only count red items", "focus on the top shelf".'
+    ),
 });
 export type RecognizeArtSuppliesInput = z.infer<typeof RecognizeArtSuppliesInputSchema>;
 
@@ -46,11 +52,15 @@ If applicable, include sizes or specific types if visually discernible.
 
 Image data: {{media url=imageDataUri}}
 
+{{#if userInstructions}}
+Please follow these specific instructions: {{{userInstructions}}}
+{{/if}}
+
 Crucially, the 'recognizedItems' field in your output MUST be a valid JSON array of objects, where each object contains a 'name' (string) and 'count' (integer) for an identified art supply.
 Focus on accuracy for both identification and counting.
 If multiple instances of the exact same item are present, count them together under one entry.
 If an item is partially obscured but reasonably identifiable, include it.
-Your analysisSummary can include general observations or any challenges faced.
+Your analysisSummary can include general observations or any challenges faced, including how you applied the user's instructions.
 Example for recognizedItems: [{"name": "Sketch Pencils - Set of 12", "count": 1}, {"name": "Watercolor Pan - Viridian Green", "count": 3}]
 `,
 });

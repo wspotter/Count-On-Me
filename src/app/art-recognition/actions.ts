@@ -12,6 +12,7 @@ export async function analyzeArtSuppliesImage(
   }
 
   try {
+    // The input type already includes userInstructions from the flow definition
     const result: FlowOutput = await recognizeArtSuppliesFlow(input);
     
     let parsedItems: RecognizedArtSupply[];
