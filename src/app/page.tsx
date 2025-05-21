@@ -1,8 +1,11 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { MOCK_INVENTORY_ITEMS, LOW_STOCK_THRESHOLD } from '@/lib/constants';
+// import { MOCK_INVENTORY_ITEMS, LOW_STOCK_THRESHOLD } from '@/lib/constants'; // No longer directly used
+import { LOW_STOCK_THRESHOLD } from '@/lib/constants';
+import { getInventoryItemsFromStorage } from '@/lib/inventory-service';
 import type { InventoryItem } from '@/lib/types';
 import { DollarSign, Archive, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,9 +17,27 @@ export default function DashboardPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
-    // Simulate API call or data loading
-    setInventory(MOCK_INVENTORY_ITEMS);
+    // Load inventory from localStorage or fallback to mocks via service
+    setInventory(getInventoryItemsFromStorage());
   }, []);
+
+  // Re-calculate when inventory changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+        setInventory(getInventoryItemsFromStorage());
+    };
+    window.addEventListener('storage', handleStorageChange); // Listen for direct localStorage changes from other tabs
+    
+    // Custom event listener for changes within the same tab/app
+    // (e.g., if inventory-service emitted an event)
+    // For simplicity, we'll rely on navigation or explicit refresh for now
+    // if not using a global state manager.
+
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
 
   const totalItems = useMemo(() => inventory.reduce((sum, item) => sum + item.quantity, 0), [inventory]);
   const totalValue = useMemo(() => inventory.reduce((sum, item) => sum + item.quantity * item.price, 0), [inventory]);

@@ -14,6 +14,7 @@ import { Loader2, AlertCircle, Camera, Upload, Wand2, Eraser, Save, XCircle } fr
 import { useToast } from "@/hooks/use-toast";
 import type { RecognizeArtSuppliesOutput, RecognizedArtSupply } from '@/lib/types';
 import { analyzeArtSuppliesImage } from './actions';
+import { updateInventoryWithRecognizedItems } from '@/lib/inventory-service';
 
 const PLACEHOLDER_IMAGE = "https://placehold.co/600x400.png";
 
@@ -26,6 +27,7 @@ export default function ArtRecognitionPage() {
   const [results, setResults] = useState<RecognizeArtSuppliesOutput | null>(null);
   const [editableItems, setEditableItems] = useState<RecognizedArtSupply[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSave, setIsLoadingSave] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -140,9 +142,9 @@ export default function ArtRecognitionPage() {
     if (response.success && response.data) {
       setResults(response.data);
       if (Array.isArray(response.data.recognizedItems)) {
-        setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems))); // Deep copy
+        setEditableItems(JSON.parse(JSON.stringify(response.data.recognizedItems))); 
       } else {
-        setEditableItems([]); // Cannot edit if it's not an array
+        setEditableItems([]); 
       }
       toast({ title: "Analysis Complete", description: "Art supplies recognized." });
     } else {
@@ -167,6 +169,7 @@ export default function ArtRecognitionPage() {
     setResults(null);
     setEditableItems([]);
     setError(null);
+    if (isWebcamOn) stopWebcam();
     const fileInput = document.getElementById('art-image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
@@ -186,23 +189,35 @@ export default function ArtRecognitionPage() {
     setEditableItems(updatedItems);
   };
 
-  const handleSaveChanges = () => {
-    if (!results) return;
-    // Create a new results object with the updated items
-    const newResults: RecognizeArtSuppliesOutput = {
-        ...results,
-        recognizedItems: [...editableItems] // Use a copy of editableItems
-    };
-    setResults(newResults); // This will make the table re-render with corrected values
-    toast({ title: "Corrections Saved", description: "Your changes have been applied to the current view." });
+  const handleSaveChanges = async () => {
+    if (!editableItems || editableItems.length === 0) {
+      toast({ variant: "destructive", title: "No Items", description: "No items to save to inventory." });
+      return;
+    }
+    setIsLoadingSave(true);
+    try {
+      updateInventoryWithRecognizedItems(editableItems);
+      toast({ title: "Inventory Updated", description: "Recognized items have been added/updated in your inventory." });
+      // Optionally, clear the current results or give other feedback
+      // For example, reset the page:
+      // clearImage(); 
+      // Or just update the results to reflect saved state (no further editing on this batch)
+      if (results) {
+        setResults(prevResults => prevResults ? {...prevResults, recognizedItems: [...editableItems]} : null);
+      }
+
+    } catch (e) {
+      console.error("Failed to save to inventory:", e);
+      toast({ variant: "destructive", title: "Save Failed", description: "Could not update inventory." });
+    }
+    setIsLoadingSave(false);
   };
 
   const handleCancelChanges = () => {
     if (results && Array.isArray(results.recognizedItems)) {
-      setEditableItems(JSON.parse(JSON.stringify(results.recognizedItems))); // Reset to original AI results
+      setEditableItems(JSON.parse(JSON.stringify(results.recognizedItems))); 
       toast({ title: "Corrections Canceled", description: "Changes have been reverted to the last AI analysis." });
     } else if (results && typeof results.recognizedItems === 'string') {
-        // If original was a string, implies it was unparsable, so reset editableItems to empty
         setEditableItems([]);
         toast({ title: "Corrections Canceled", description: "Original data was not in an editable format." });
     }
@@ -210,20 +225,19 @@ export default function ArtRecognitionPage() {
 
   const canEditResults = results && Array.isArray(results.recognizedItems) && results.recognizedItems.length > 0;
 
-
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Art Supply Recognition</h1>
-          {imageDataUri && (
-            <Button variant="outline" onClick={clearImage} disabled={isLoading} className="mt-1 md:mt-0">
-              <Eraser className="mr-2 h-5 w-5" /> Clear Image
+           {imageDataUri && (
+            <Button variant="outline" onClick={clearImage} disabled={isLoading || isLoadingSave} className="mt-1 md:mt-0">
+              <Eraser className="mr-2 h-5 w-5" /> Clear Image & Results
             </Button>
           )}
         </div>
-        <p className="text-lg text-muted-foreground">
-          Analyze images of your art supplies. The AI will identify each item type and count how many it detects. You can then correct these results.
+         <p className="text-lg text-muted-foreground">
+          Upload or capture an image of art supplies. The AI will identify each item and its count. You can then correct these findings and save them to your inventory.
         </p>
       </div>
 
@@ -246,7 +260,7 @@ export default function ArtRecognitionPage() {
             <CardContent className="space-y-4">
               <div className="grid w-full max-w-sm items-center gap-1.5">
                 <Label htmlFor="art-image-upload">Picture</Label>
-                <Input id="art-image-upload" type="file" accept="image/*" onChange={handleFileChange} />
+                <Input id="art-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isLoading || isLoadingSave}/>
               </div>
             </CardContent>
           </Card>
@@ -260,11 +274,11 @@ export default function ArtRecognitionPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {!isWebcamOn ? (
-                <Button onClick={startWebcam}><Camera className="mr-2 h-5 w-5"/>Start Webcam</Button>
+                <Button onClick={startWebcam} disabled={isLoading || isLoadingSave}><Camera className="mr-2 h-5 w-5"/>Start Webcam</Button>
               ) : (
                 <div className="space-y-2">
-                  <Button onClick={stopWebcam} variant="outline">Stop Webcam</Button>
-                  <Button onClick={captureFromWebcam} className="ml-2">Capture Photo</Button>
+                  <Button onClick={stopWebcam} variant="outline" disabled={isLoading || isLoadingSave}>Stop Webcam</Button>
+                  <Button onClick={captureFromWebcam} className="ml-2" disabled={isLoading || isLoadingSave}>Capture Photo</Button>
                 </div>
               )}
               <div className="w-full aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center">
@@ -307,7 +321,7 @@ export default function ArtRecognitionPage() {
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleAnalyze} disabled={isLoading || !imageDataUri}>
+                <Button onClick={handleAnalyze} disabled={isLoading || isLoadingSave || !imageDataUri}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
                     Analyze Supplies
                 </Button>
@@ -328,7 +342,7 @@ export default function ArtRecognitionPage() {
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Analysis Results</CardTitle>
-            <CardDescription>Review and correct the AI's findings below. Click "Save Corrections" to apply your changes to this view.</CardDescription>
+            <CardDescription>Review and correct the AI's findings below. Click "Save to Inventory" to add/update these items in your main inventory.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -343,13 +357,14 @@ export default function ArtRecognitionPage() {
                   </TableHeader>
                   <TableBody>
                     {editableItems.map((item, index) => (
-                      <TableRow key={`edit-${item.name}-${index}`}> {/* Ensure key is unique for editable items */}
+                      <TableRow key={`edit-${item.name}-${index}`}>
                         <TableCell>
                           <Input
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(index, 'name', e.target.value)}
                             className="h-8"
+                            disabled={isLoadingSave}
                           />
                         </TableCell>
                         <TableCell className="text-right">
@@ -359,6 +374,7 @@ export default function ArtRecognitionPage() {
                             onChange={(e) => handleItemChange(index, 'count', e.target.value)}
                             className="h-8 w-20 text-right"
                             min="0"
+                            disabled={isLoadingSave}
                           />
                         </TableCell>
                       </TableRow>
@@ -383,19 +399,19 @@ export default function ArtRecognitionPage() {
           </CardContent>
            {canEditResults && (
             <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleCancelChanges} disabled={isLoading}>
+                <Button variant="outline" onClick={handleCancelChanges} disabled={isLoading || isLoadingSave}>
                     <XCircle className="mr-2 h-5 w-5" /> Cancel Corrections
                 </Button>
-                <Button onClick={handleSaveChanges} disabled={isLoading}>
-                    <Save className="mr-2 h-5 w-5" /> Save Corrections
+                <Button onClick={handleSaveChanges} disabled={isLoading || isLoadingSave || editableItems.length === 0}>
+                    {isLoadingSave ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                     Save to Inventory
                 </Button>
             </CardFooter>
            )}
         </Card>
       )}
        <p className="text-xs text-muted-foreground mt-4">
-        Note: AI-powered recognition is experimental. For critical inventory, always verify counts manually.
-        The model's ability to be trained with custom datasets would require a separate MLOps pipeline and model deployment, which can then be integrated here.
+        Note: AI-powered recognition is experimental. For critical inventory, always verify counts manually. New items added via recognition will have a default price of $0.00; please update this on the Inventory page.
       </p>
     </div>
   );

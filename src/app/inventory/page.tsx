@@ -1,8 +1,10 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import type { InventoryItem } from '@/lib/types';
-import { MOCK_INVENTORY_ITEMS } from '@/lib/constants';
+// import { MOCK_INVENTORY_ITEMS } from '@/lib/constants'; // No longer directly used for initial state
+import { getInventoryItemsFromStorage, saveInventoryItemsToStorage } from '@/lib/inventory-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
@@ -22,7 +24,8 @@ export default function InventoryPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setInventory(MOCK_INVENTORY_ITEMS);
+    // Load inventory from localStorage or fallback to mocks via service
+    setInventory(getInventoryItemsFromStorage()); 
   }, []);
 
   const filteredInventory = useMemo(() => {
@@ -34,27 +37,33 @@ export default function InventoryPage() {
   const handleAddItem = (data: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
     const newItem: InventoryItem = {
       ...data,
-      id: String(Date.now()), // Simple ID generation
+      id: String(Date.now()) + Math.random().toString(36).substring(2, 9),
       lastUpdated: new Date().toISOString(),
     };
-    setInventory(prev => [newItem, ...prev]);
+    const updatedInventory = [newItem, ...inventory];
+    setInventory(updatedInventory);
+    saveInventoryItemsToStorage(updatedInventory);
     toast({ title: "Item Added", description: `${newItem.name} has been added to inventory.` });
   };
 
   const handleEditItem = (data: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
     if (!editingItem) return;
-    const updatedItem = {
+    const updatedItem: InventoryItem = {
       ...editingItem,
       ...data,
       lastUpdated: new Date().toISOString(),
     };
-    setInventory(prev => prev.map(item => item.id === editingItem.id ? updatedItem : item));
+    const updatedInventory = inventory.map(item => item.id === editingItem.id ? updatedItem : item);
+    setInventory(updatedInventory);
+    saveInventoryItemsToStorage(updatedInventory);
     toast({ title: "Item Updated", description: `${updatedItem.name} has been updated.` });
   };
 
   const handleDeleteItem = () => {
     if (!deletingItem) return;
-    setInventory(prev => prev.filter(item => item.id !== deletingItem.id));
+    const updatedInventory = inventory.filter(item => item.id !== deletingItem.id);
+    setInventory(updatedInventory);
+    saveInventoryItemsToStorage(updatedInventory);
     toast({ title: "Item Deleted", description: `${deletingItem.name} has been removed.`, variant: "destructive" });
     setIsDeleteConfirmOpen(false);
     setDeletingItem(null);
@@ -85,7 +94,7 @@ export default function InventoryPage() {
               <PlusCircle className="mr-2 h-5 w-5" /> Add Item
             </Button>
           </DialogTrigger>
-          {isFormOpen && ( /* Conditional rendering to re-mount form and reset state */
+          {isFormOpen && ( 
              <InventoryForm 
               onSubmit={editingItem ? handleEditItem : handleAddItem} 
               initialData={editingItem}
